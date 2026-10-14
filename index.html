@@ -367,7 +367,9 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
         import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 
-        // Firebase configuration for taumd-1
+        // SECURITY NOTE: Ensure this API key is restricted by HTTP Referrers 
+        // in your Google Cloud Console (APIs & Services > Credentials) 
+        // to prevent unauthorized usage when hosted publicly on GitHub Pages.
         const firebaseConfig = {
             apiKey: "AIzaSyCWQss4KOpz-u92_9qAN7e_laG8PsuuI4E",
             authDomain: "taumd-1.firebaseapp.com",
@@ -384,11 +386,14 @@
 
         window.taumdAuth = auth;
 
-        // Secure Google Authentication Handler
+        // Secure Google Authentication Handler with domain check
         window.taumdGoogleSignIn = async () => {
             try {
                 return await signInWithPopup(auth, googleProvider);
             } catch (error) {
+                if (error.code === 'auth/unauthorized-domain') {
+                    throw new Error("Unauthorized Domain: Add your GitHub Pages URL in Firebase Console -> Authentication -> Settings -> Authorized domains.");
+                }
                 if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || error.message.includes('ASSERTION FAILED')) {
                     console.warn("Popup restricted, switching to redirect mode...", error);
                     return await signInWithRedirect(auth, googleProvider);
@@ -403,6 +408,7 @@
             }
         }).catch((err) => {
             console.error("Redirect Auth Error:", err);
+            showToast(err.message, "error");
         });
 
         window.taumdSignOut = () => signOut(auth);
@@ -445,13 +451,7 @@
                 }
             } catch (error) {
                 console.error("Google Sign In Error:", error);
-                // Fallback for sandboxed preview iframe
-                showToast("Sandbox environment detected. Logging in preview mode.", "info");
-                transitionToDashboard({
-                    displayName: "TAUMD Google Operator",
-                    email: "operator@gmail.com",
-                    photoURL: "https://placehold.co/40x40/10b981/ffffff?text=G"
-                });
+                showToast(error.message || "Google Sign-In failed.", "error");
             } finally {
                 isAuthenticating = false;
                 if(btnText) btnText.innerText = "Sign In with Google";
